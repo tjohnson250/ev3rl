@@ -8,6 +8,7 @@
 # see python ev3 dev docs for sensor info: https://media.readthedocs.org/pdf/python-ev3dev/latest/python-ev3dev.pdf
 # if trouble connecting to tpyc reboot EV3 robot
 
+import datetime
 import socket
 hostname = socket.gethostname()
 
@@ -48,41 +49,27 @@ numirsensorstates = 5       # IR sensor returns 0 to 100 (v). This is rescaled u
 # 0 to 5 (scaled from 0 to 100)
 
 ## EV3 Tank movement actions
-'''
-tank.stop_action = 'coast'
-block = True          # should the program wait until the move finishes?
-def forward():
-    tank.on_for_seconds(10, 10, 1, block=block)
-def turnleft():
-    tank.on_for_seconds(5, 10, 1, block=block)
-def turnright():
-    tank.on_for_seconds(10, 5, 1, block=block)
-def rotateright():
-    tank.on_for_seconds(10, -10, 1, block=block)
-def rotateleft():
-    tank.on_for_seconds(-10, 10, 1, block=block)
-def backward():
-    tank.on_for_seconds(-10, -10, 1, block=block)
-'''
 
 cycle_time = 990
+speed = motors.SpeedPercent(10)
 block = True          # should the program wait until the move finishes?
 def forward():
-    tank.on(10, 10)
+    tank.on(speed, speed)
 def turnleft():
-    tank.on(5, 10)
+    tank.on(speed/2, speed)
 def turnright():
-    tank.on(10, 5)
+    tank.on(speed, speed/2)
 def rotateright():
-    tank.on(10, -10)
+    tank.on(speed, -speed)
 def rotateleft():
-    tank.on(-10, 10)
+    tank.on(-speed, speed)
 def backward():
-    tank.on(-10, -10)
+    tank.on(-speed, -speed)
 
 actions = [forward, turnleft, turnright, rotateright, rotateleft, backward]
 numactions = len(actions)
 
+# Issue the selected action to the EV3
 def ev3action(a):
     actions[a]()
 
@@ -110,7 +97,7 @@ st = ts.value() # touchsensor
 sir = round(ir.proximity/25.0) # ir sensor proximity
 
 total_reward = 0
-
+start_time = datetime.datetime.now() # log start of episode
 for x in range(1, trials):
     # Use epsilon greedy policy based on Q table
     epsilon = N0 / (N0 + x)
