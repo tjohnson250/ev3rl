@@ -15,6 +15,10 @@ if hostname == 'ev3dev':
     # We are running on the EV3, import modules directly
     import ev3dev2.sensor.lego as sensors
     import ev3dev2.motor as motors
+    import os
+    os.system('setfont Lat15-TerminusBold14')
+    import ev3dev2.display as display # Only need this when running on ev3
+    disp = display.Display()
 else:
     # We are running remotely, so assume we are using RPYC
     import rpyc 
@@ -44,19 +48,37 @@ numirsensorstates = 5       # IR sensor returns 0 to 100 (v). This is rescaled u
 # 0 to 5 (scaled from 0 to 100)
 
 ## EV3 Tank movement actions
-tank.stop_action = STOP_ACTION_COAST
+'''
+tank.stop_action = 'coast'
+block = True          # should the program wait until the move finishes?
 def forward():
-    tank.on_for_seconds(10, 10, 1, block=False)
+    tank.on_for_seconds(10, 10, 1, block=block)
 def turnleft():
-    tank.on_for_seconds(5, 10, 1, block=False)
+    tank.on_for_seconds(5, 10, 1, block=block)
 def turnright():
-    tank.on_for_seconds(10, 5, 1, block=False)
+    tank.on_for_seconds(10, 5, 1, block=block)
 def rotateright():
-    tank.on_for_seconds(10, -10, 1, block=False)
+    tank.on_for_seconds(10, -10, 1, block=block)
 def rotateleft():
-    tank.on_for_seconds(-10, 10, 1, block=False)
+    tank.on_for_seconds(-10, 10, 1, block=block)
 def backward():
-    tank.on_for_seconds(-10, -10, 1, block=False)
+    tank.on_for_seconds(-10, -10, 1, block=block)
+'''
+
+cycle_time = 990
+block = True          # should the program wait until the move finishes?
+def forward():
+    tank.on(10, 10)
+def turnleft():
+    tank.on(5, 10)
+def turnright():
+    tank.on(10, 5)
+def rotateright():
+    tank.on(10, -10)
+def rotateleft():
+    tank.on(-10, 10)
+def backward():
+    tank.on(-10, -10)
 
 actions = [forward, turnleft, turnright, rotateright, rotateleft, backward]
 numactions = len(actions)
@@ -95,11 +117,11 @@ for x in range(1, trials):
     if random.random() > epsilon:
         a = np.argmax(q_table[st, sir]) # find action (index) with max q value for state
     else:
-        a = random.randint(0, numactions)
+        a = random.randint(0, numactions-1)
 
     # Send selected command to EV3 robot
     ev3action(a)
-
+    tank.wait_while('running', cycle_time/2) 
     # read touch and ir sensors to find current state after taking action
     stp = ts.value()
     sirp = round(ir.proximity/25.) # simplify to 5 bins
@@ -130,4 +152,11 @@ for x in range(1, trials):
             print("*****Step #", x, " *****")
             print('Epsilon: ', epsilon, 'Touch: ', st, 'Proximity: ', sir, "Total Reward: ", total_reward)
             print(q_table)
+    else:
+        # disp.text_grid("Test", x=0, y=0) # Too slow
+        # disp.update()
+        print("*****Step #", x, " *****\n")
+        print('Epsilon: ', epsilon, '\nTouch: ', st, '\nProximity: ', sir, "\nTotal Reward: ", total_reward, "\n")
 
+    
+tank.off()

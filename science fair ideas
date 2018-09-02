@@ -1,0 +1,6 @@
+exploitation vs. exploration
+effect of cycle time vs. robot speed
+joystick control vs. discrete move commands
+effect of different learning algorithms (Q learning, Expected Q, SARSA)
+effect of IR vs. Ultrasonic sensor
+effect of increasing precision of ultrasonic sensor
