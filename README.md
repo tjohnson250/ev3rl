@@ -1,87 +1,22 @@
-# vscode-hello-python
-Hello World for [ev3dev] + [Visual Studio Code][code] + [Python]
+# EV3RL
+This is work in progress to implement reinforcement learning on a Lego Mindstorms EV3 robot for use in middle school science projects. The code uses ev3dev and ev3dev-python. It is based on the vscode-hello-python. (See below for pointers to all of these.)
 
+The main learning task is for the robot to learn to make as much forward progress as possible while avoiding obstacles. Right now, the code uses Q learning over discretized distance input and a few discrete actions. This is appropriate for younger students, because the table-based approach used in Q learning is easy to understand and explain to others (e.g., science fair judges). It is also easy for them to develop their own experiments, such as the effect of exploration vs. exploitation, or the effect of the learning and discount rate, etc. Older children might want to compare different learning algorithms, such as SARSA, Expected SARSA, SARSA(\Lambda), etc.
 
-## Overview
-This is a git repository to help you get started programming a robot using
-ev3dev in Visual Studio Code using the Python programming language.
+More advanced students might apply continuous state and action space methods, such as DDPG or TRPO. This is possible by using RPYC to run the heavy computation on a fast remote machine. 
 
+Currently, this code is in development and will change rapidly. It is not cleanly written.
 
-## Prerequisites
-* LEGO MINDSTORMS EV3, Dexter Industries Brick Pi, Mindsensors PiStorms, or
-  FatcatLab EVB with [ev3dev] installed. **Does not work with ev3dev-jessie!
-  Be sure to grab a snapshot image of ev3dev-stretch.**
-* A computer (Windows, macOS, or Linux) with [Visual Studio Code][code]
-  installed.
+The code assumes a standard Lego EV3 driving base with two large motors (connected to B and C) and an IR sensor plus one touch sensor, both mounted to the front. The IR Sensor detects distance to an object. The Touch sensor is connected to a bumper to detect when the robot has hit an obstacle. 
 
+The code can run directly on the EV3, or from a remote machine using RPYC. If RPYC is used, you will see a heatmap displayed on the remote machine. I recommend using Visual Studio Code for all development.
 
-## Step-by-Step
-1.  Download the [vscode-hello-python][zip] project from GitHub and unzip it.
+I will be updating this code regularly since we are the midst of fall science fair season.
 
-    [zip]: https://github.com/ev3dev/vscode-hello-python/archive/master.zip
+[ev3dev](http://www.ev3dev.org)
 
-2.  Open the `vscode-hello-python-master` folder in Visual Studio Code.
+[visual studio code](https://code.visualstudio.com/)
 
-    ![screenshot](.README/vscode-open-folder.png)
+[python](https://www.python.org/)
 
-    ![screenshot](.README/vscode-open-folder-dialog.png)
-
-6.  Click *Show Recommendations* when asked.
-
-    ![screenshot](.README/vscode-show-recommendations.png)
-
-7.  Install the `ev3dev-browser` extension. If you have Python installed on your
-    computer, you can install that extension too. (Don't install it if you don't
-    have Python already installed.)
-
-    ![screenshot](.README/vscode-extensions-recommended.png)
-
-8.  After installation completes, click *Reload* and *Reload Window*.
-
-    ![screenshot](.README/vscode-ev3dev-browser-reload.png)
-
-    ![screenshot](.README/vscode-reload-window.png)
-
-9. Open the *Explorer* activity pane.
-
-    ![screenshot](.README/vscode-explorer-icon.png)
-
-10. Click the arrow next to *EV3DEV DEVICE BROWSER* to open it.
-
-    ![screenshot](.README/vscode-ev3dev-browser-collapsed.png)
-
-    ![screenshot](.README/vscode-ev3dev-browser-expanded.png)
-
-11. Ensure that your ev3dev device is turned on and has a network connection to
-    the host computer. USB, Bluetooth, Wi-Fi or wired will work.
-
-12. Click the text where it says "Click here to connect to a device".
-    A box will pop up that lists discovered devices. Select one.
-
-    ![screenshot](.README/vscode-searching-for-devices.png)
-
-13. Once the device has connected, you will see a green dot and the
-    `/home/robot` folder.
-
-    ![screenshot](.README/vscode-home-robot.png)
-
-14. Press <kbd>F5</kbd> to download the program and run it.
-
-15. The *Output* pane will automatically open and show the status of the
-    program and any error/debug messages.
-
-    ![screenshot](.README/vscode-output.png)
-
-18. Open the source code file, `hello.py`, to learn more.
-
-
-## TODO
-
-* Explain how to get code completion working
-* Explain how to install ev3dev-lang-python on the host computer
-
-[ev3dev]: http://www.ev3dev.org
-[code]: https://code.visualstudio.com/
-[python]: https://www.python.org/
-[git]: https://git-scm.com/
-[github]: https://desktop.github.com/
+[rpyc](https://rpyc.readthedocs.io/en/latest/)
