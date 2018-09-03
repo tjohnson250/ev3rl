@@ -1,6 +1,9 @@
+Dependent variables: average reward over all steps and average reward for last 100 trials
+
 exploitation vs. exploration
 effect of cycle time vs. robot speed
 joystick control vs. discrete move commands
 effect of different learning algorithms (Q learning, Expected Q, SARSA)
 effect of IR vs. Ultrasonic sensor
 effect of increasing precision of ultrasonic sensor
+effect of 0, 1, or 2 state history
