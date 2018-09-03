@@ -14,7 +14,9 @@ The code can run directly on the EV3, or from a remote machine using RPYC. If RP
 I will be updating this code regularly since we are the midst of fall science fair season.
 
 [ev3dev](http://www.ev3dev.org)
-[code](https://code.visualstudio.com/)
+
+[visual studio code](https://code.visualstudio.com/)
+
 [python](https://www.python.org/)
-[git](https://git-scm.com/)
+
 [rpyc](https://rpyc.readthedocs.io/en/latest/)
