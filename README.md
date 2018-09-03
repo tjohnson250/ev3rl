@@ -11,6 +11,8 @@ The code assumes a standard Lego EV3 driving base with two large motors (connect
 
 The code can run directly on the EV3, or from a remote machine using RPYC. If RPYC is used, you will see a heatmap displayed on the remote machine. I recommend using Visual Studio Code for all development.
 
+One warning: to allow the robot to move smoothly (without moving, stopping, moving stopping, etc.) the code turns the motors on "forever" and only changes the motors when another command is received. If the script ends normally, the motors are turned off, but if the script exits due to an error, the motors are left on. Run the script RPYC Stop EV3 Motors.py to turn off the motors.
+
 I will be updating this code regularly since we are the midst of fall science fair season.
 
 [ev3dev](http://www.ev3dev.org)
