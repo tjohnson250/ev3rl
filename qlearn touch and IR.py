@@ -9,7 +9,14 @@
 # if trouble connecting to tpyc reboot EV3 robot
 
 import datetime
+import numpy as np
+import random
 import socket
+import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib.colors import Normalize
+from heatmap import heatmap, annotate_heatmap, DivergingNorm
+
 hostname = socket.gethostname()
 
 if hostname == 'ev3dev':
@@ -31,9 +38,6 @@ tank = motors.MoveTank('outB', 'outC')
 ir = sensors.InfraredSensor()
 ir.mode = 'IR-PROX' # Put sensor in Proximity mode to measure distance from an obstacle
 ts = sensors.TouchSensor()
-
-import numpy as np
-import random
 
 np.set_printoptions(precision = 3)
 
@@ -68,6 +72,7 @@ def backward():
 
 actions = [forward, turnleft, turnright, rotateright, rotateleft, backward]
 numactions = len(actions)
+action_names = (a.__name__ for a in actions) # convert functions to their names
 
 # Issue the selected action to the EV3
 def ev3action(a):
@@ -89,18 +94,42 @@ gamma = 0.9
 # epsilon = 0.1 Here lets vary epsilon based on N0: epsilon = N0/(N0 + t) where t is the number of trials
 N0 = 50
 
-# Run a fixed number of trials
-trials = 1000
+# Run a fixed number of steps
+steps = 1000
 
 # initialize state variables
 st = ts.value() # touchsensor
 sir = round(ir.proximity/25.0) # ir sensor proximity
 
+# Function to always have 0 be white in a diverging heatmap
+class MidpointNormalize(Normalize):
+    def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+        self.midpoint = midpoint
+        Normalize.__init__(self, vmin, vmax, clip)
+
+    def __call__(self, value, clip=None):
+        # I'm ignoring masked values and all kinds of edge cases to make a
+        # simple example...
+        x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
+        return np.ma.masked_array(np.interp(value, x, y))
+    
+# create a matplotlib figure for the Q table
+fig = plt.figure('Q-table')
+ax = fig.add_subplot(111)
+im, cbar = heatmap(q_table[0], list(range(numirsensorstates)), action_names, ax=ax,
+                    cmap="RdBu", cbarlabel="Q table",
+                    norm=DivergingNorm(vcenter=0.0))
+                    #norm=MidpointNormalize(midpoint=0))
+texts = annotate_heatmap(im, valfmt="{x:.1f}")
+plt.draw()
+#fig, ax = plt.subplots()
+
 total_reward = 0
 start_time = datetime.datetime.now() # log start of episode
-for x in range(1, trials):
+rewards = np.zeros(100)
+for step in range(0, steps-1): 
     # Use epsilon greedy policy based on Q table
-    epsilon = N0 / (N0 + x)
+    epsilon = N0 / (N0 + step)
     if random.random() > epsilon:
         a = np.argmax(q_table[st, sir]) # find action (index) with max q value for state
     else:
@@ -123,6 +152,7 @@ for x in range(1, trials):
     else:       # all other possibilities
         r = -1
     
+    rewards[step%100] = r
     total_reward += r
 
     ## Use only one of the update rules below
@@ -135,14 +165,28 @@ for x in range(1, trials):
     st = stp
     sir = sirp
     if hostname != 'ev3dev':
-        if x%1 == 0:
-            print("*****Step #", x, " *****")
+        if step%1 == 0:
+            print("*****Step #", step, " *****")
             print('Epsilon: ', epsilon, 'Touch: ', st, 'Proximity: ', sir, "Total Reward: ", total_reward)
             print(q_table)
+            if step%100 > 0:
+                print("PLOTTING HEATMAP")
+                #im, cbar = heatmap(q_table[1], list(range(numirsensorstates)), actions, ax=ax,
+                #    cmap="RdBu", cbarlabel="Q table")
+                [t.remove() for t in texts]
+                texts = annotate_heatmap(im, valfmt="{x:.1f}", threshold=0)
+                #fig.tight_layout()
+                im.set_data(q_table[0])
+                cbar.set_clim([q_table[0].min(), q_table[0].max()])
+                cbar.update_normal(im)
+                plt.draw()
+                plt.pause(0.1)
+                #plt.cla()
+
     else:
         # disp.text_grid("Test", x=0, y=0) # Too slow
         # disp.update()
-        print("*****Step #", x, " *****\n")
+        print("*****Step #", step, " *****\n")
         print('Epsilon: ', epsilon, '\nTouch: ', st, '\nProximity: ', sir, "\nTotal Reward: ", total_reward, "\n")
 
     
