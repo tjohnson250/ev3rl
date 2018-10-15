@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-# To use this file through rpyc
+# This script can be downloaded to the EV3 (running EV3DEV) and run as a script 
+# from the EV3's control panel.
+#
+# To run this script remotely on a computer, using RPYC:
 # Start SSH connection to ev3dev lego robot using vis studio code ev3d browser extension
 # In the SSH terminal execute: ./rcpy_server.sh, containing two lines
 # #!/bin/bash
 # python3 'which rpyc_classic.py' --host 0.0.0.0
 # 
 # see python ev3 dev docs for sensor info: https://media.readthedocs.org/pdf/python-ev3dev/latest/python-ev3dev.pdf
-# if trouble connecting to tpyc reboot EV3 robot
+# if trouble connecting to rpyc reboot EV3 robot and try again
+# It is far better to use a wifi dongle on the EV3 for the connection to the computer from which you SSH
 
 import datetime
 import numpy as np
@@ -19,6 +23,7 @@ from heatmap import heatmap, annotate_heatmap, DivergingNorm
 
 hostname = socket.gethostname()
 
+# Load libraries based on where the script is running
 if hostname == 'ev3dev':
     # We are running on the EV3, import modules directly
     import ev3dev2.sensor.lego as sensors
@@ -35,22 +40,43 @@ else:
     motors = conn.modules['ev3dev2.motor']
 
 tank = motors.MoveTank('outB', 'outC')
-ir = sensors.InfraredSensor()
-ir.mode = 'IR-PROX' # Put sensor in Proximity mode to measure distance from an obstacle
+
+# Uncomment these lines if your EV3 has an IR sensor
+distSensorType = 'Ultrasonic' # Change to 'IR' for the IR sensor
+if distSensorType == 'Ultrasonic':
+    distSensor = sensors.UltrasonicSensor()
+    distSensor.mode = 'US-DIST-CM'  # Measure distance in centimeters
+else:
+    distSensor = sensors.InfraredSensor()
+    distSensor.mode = 'IR-PROX' # Put sensor in Proximity mode to measure distance from an obstacle
+
+
 ts = sensors.TouchSensor()
 
 np.set_printoptions(precision = 3)
 
-numtouchsensorstates = 2
-numirsensorstates = 5       # IR sensor returns 0 to 100 (v). This is rescaled using v%25
-
-# states
 # touch sensor
 # 0: touchsensor not pressed
 # 1: touchsensor pressed
+numTouchSensorStates = 2
 
-# ir sensor
-# 0 to 5 (scaled from 0 to 100)
+# Ultrasonic returns 0 to 255 cm. IR sensor returns 0 to 100 (v).
+# Discretize these values to the following number of states
+numDistSensorStates = 5
+
+# Create bins that discretize distance so that it is finer grained up close to an obstacle
+# This is a series, such as [0, 4, 8, 16, 32...]
+bins = [0]
+for i in range(numDistSensorStates - 1):
+    bins.append((i+1)*4)
+
+def getCoarseDistance(sensor, distSensor, bins):
+    if distSensor == 'Ultrasonic':
+        rawDist = sensor.distance_centimeters
+    else:
+        rawDist = sensor.proximity
+    dist = np.digitize([rawDist], bins)[0] # Discretize distance returns bins from 1 to number of bins
+    return(dist-1)   # Subtract 1 to index arrays from 0
 
 ## EV3 Tank movement actions
 
@@ -78,6 +104,7 @@ action_names = (a.__name__ for a in actions) # convert functions to their names
 def ev3action(a):
     actions[a]()
 
+
 # For expected SARSA 
 # Return expected value of state (st, sir) given epsilon and q table
 # def expSARSA(st, sir, epsilon, q, numactions):
@@ -86,7 +113,7 @@ def ev3action(a):
 #    for a in range(numactions):
 #        result += (1/numactions * epsilon + (1-epsilon)*int(a=best_action)) * q[st, sir, a]
 
-q_table = np.zeros([numtouchsensorstates, numirsensorstates, numactions]) # indexed by 0
+q_table = np.zeros([numTouchSensorStates, numDistSensorStates, numactions]) # indexed by 0
 
 # Hyperparametes
 alpha = 0.1
@@ -94,12 +121,19 @@ gamma = 0.9
 # epsilon = 0.1 Here lets vary epsilon based on N0: epsilon = N0/(N0 + t) where t is the number of trials
 N0 = 50
 
+# Softmax with temperature T as an alternative to epsilon-Greedy exploration
+def softmax(l, T):
+    return(np.exp(l/T)/np.sum(np.exp(l/T)))
+
+def softmaxAction(l, T):
+    return(np.random.choice(len(l), 1, p = softmax(l, T))[0])
+
 # Run a fixed number of steps
 steps = 1000
 
 # initialize state variables
 st = ts.value() # touchsensor
-sir = round(ir.proximity/25.0) # ir sensor proximity
+dist = getCoarseDistance(distSensor, distSensorType, bins)
 
 # Function to always have 0 be white in a diverging heatmap
 class MidpointNormalize(Normalize):
@@ -116,7 +150,7 @@ class MidpointNormalize(Normalize):
 # create a matplotlib figure for the Q table
 fig = plt.figure('Q-table')
 ax = fig.add_subplot(111)
-im, cbar = heatmap(q_table[0], list(range(numirsensorstates)), action_names, ax=ax,
+im, cbar = heatmap(q_table[0], list(range(numDistSensorStates)), action_names, ax=ax,
                     cmap="RdBu", cbarlabel="Q table",
                     norm=DivergingNorm(vcenter=0.0))
                     #norm=MidpointNormalize(midpoint=0))
@@ -131,16 +165,18 @@ for step in range(0, steps-1):
     # Use epsilon greedy policy based on Q table
     epsilon = N0 / (N0 + step)
     if random.random() > epsilon:
-        a = np.argmax(q_table[st, sir]) # find action (index) with max q value for state
+        a = np.argmax(q_table[st, dist]) # find action (index) with max q value for state
     else:
         a = random.randint(0, numactions-1)
 
+    # Try softmax action selection
+    a = softmaxAction(q_table[st, dist], 1)
     # Send selected command to EV3 robot
     ev3action(a)
     tank.wait_while('running', cycle_time/2) 
     # read touch and ir sensors to find current state after taking action
     stp = ts.value()
-    sirp = round(ir.proximity/25.) # simplify to 5 bins
+    distp = getCoarseDistance(distSensor, distSensorType, bins)
 
     # calculate the reward
     if stp == 1: # robot hit wall
@@ -157,17 +193,17 @@ for step in range(0, steps-1):
 
     ## Use only one of the update rules below
     # Update Q table using Q Learning update function
-    q_table[st, sir, a] = q_table[st, sir, a] + alpha * (r + gamma * np.amax(q_table[stp, sirp]) - q_table[st, sir, a])
+    q_table[st, dist, a] = q_table[st, dist, a] + alpha * (r + gamma * np.amax(q_table[stp, distp]) - q_table[st, dist, a])
     
     # Update Q table using Expected SARSA update function
-    #q_table[st, sir, a] = q_table[st, sir, a] + alpha * (r + gamma * expSARSA(stp, sirp, epsilon, q_table, numactions) - q_table[st, sir, a])
+    #q_table[st, dist, a] = q_table[st, dist, a] + alpha * (r + gamma * expSARSA(stp, distp, epsilon, q_table, numactions) - q_table[st, dist, a])
 
     st = stp
-    sir = sirp
+    dist = distp
     if hostname != 'ev3dev':
         if step%1 == 0:
             print("*****Step #", step, " *****")
-            print('Epsilon: ', epsilon, 'Touch: ', st, 'Proximity: ', sir, "Total Reward: ", total_reward)
+            print('Epsilon: ', epsilon, 'Touch: ', st, 'Proximity: ', dist, "Total Reward: ", total_reward)
             print(q_table)
             if step%100 > 0:
                 print("PLOTTING HEATMAP")
@@ -187,7 +223,7 @@ for step in range(0, steps-1):
         # disp.text_grid("Test", x=0, y=0) # Too slow
         # disp.update()
         print("*****Step #", step, " *****\n")
-        print('Epsilon: ', epsilon, '\nTouch: ', st, '\nProximity: ', sir, "\nTotal Reward: ", total_reward, "\n")
+        print('Epsilon: ', epsilon, '\nTouch: ', st, '\nProximity: ', dist, "\nTotal Reward: ", total_reward, "\n")
 
     
 tank.off()
