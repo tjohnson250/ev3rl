@@ -41,7 +41,6 @@ else:
 
 tank = motors.MoveTank('outB', 'outC')
 
-# Uncomment these lines if your EV3 has an IR sensor
 distSensorType = 'Ultrasonic' # Change to 'IR' for the IR sensor
 if distSensorType == 'Ultrasonic':
     distSensor = sensors.UltrasonicSensor()
@@ -68,7 +67,7 @@ numDistSensorStates = 5
 # This is a series, such as [0, 4, 8, 16, 32...]
 bins = [0]
 for i in range(numDistSensorStates - 1):
-    bins.append((i+1)*4)
+    bins.append((i+1)*8)
 
 def getCoarseDistance(sensor, distSensor, bins):
     if distSensor == 'Ultrasonic':
@@ -118,8 +117,17 @@ q_table = np.zeros([numTouchSensorStates, numDistSensorStates, numactions]) # in
 # Hyperparametes
 alpha = 0.1
 gamma = 0.9
-# epsilon = 0.1 Here lets vary epsilon based on N0: epsilon = N0/(N0 + t) where t is the number of trials
-N0 = 50
+
+# T is the temperature for softmax action selection
+# Only used when softmax is enabled by uncommenting below
+# T > 0. THe lower T is the more likely higher scoring actions will be selected
+T = 0.8
+
+# epsilon = N0/(N0 + t) where t is the number of steps taken thus far
+N0 = 10
+
+# Run a fixed number of steps
+steps = 2000
 
 # Softmax with temperature T as an alternative to epsilon-Greedy exploration
 def softmax(l, T):
@@ -128,8 +136,7 @@ def softmax(l, T):
 def softmaxAction(l, T):
     return(np.random.choice(len(l), 1, p = softmax(l, T))[0])
 
-# Run a fixed number of steps
-steps = 1000
+
 
 # initialize state variables
 st = ts.value() # touchsensor
@@ -160,21 +167,24 @@ plt.draw()
 
 total_reward = 0
 start_time = datetime.datetime.now() # log start of episode
-rewards = np.zeros(100)
+rewards = np.zeros(200)
 for step in range(0, steps-1): 
     # Use epsilon greedy policy based on Q table
-    epsilon = N0 / (N0 + step)
+    if N0 == 0:
+        epsilon = 0
+    else:
+        epsilon = N0 / (N0 + step)
     if random.random() > epsilon:
         a = np.argmax(q_table[st, dist]) # find action (index) with max q value for state
     else:
         a = random.randint(0, numactions-1)
 
     # Try softmax action selection
-    a = softmaxAction(q_table[st, dist], 1)
+    # a = softmaxAction(q_table[st, dist], T)
     # Send selected command to EV3 robot
     ev3action(a)
     tank.wait_while('running', cycle_time/2) 
-    # read touch and ir sensors to find current state after taking action
+    # read touch and ir sensors to find current state after takinc vfnmg action
     stp = ts.value()
     distp = getCoarseDistance(distSensor, distSensorType, bins)
 
@@ -188,7 +198,7 @@ for step in range(0, steps-1):
     else:       # all other possibilities
         r = -1
     
-    rewards[step%100] = r
+    rewards[step%200] = r
     total_reward += r
 
     ## Use only one of the update rules below
@@ -204,6 +214,8 @@ for step in range(0, steps-1):
         if step%1 == 0:
             print("*****Step #", step, " *****")
             print('Epsilon: ', epsilon, 'Touch: ', st, 'Proximity: ', dist, "Total Reward: ", total_reward)
+            if step >= 200:
+                print("Total reward past 200 steps: ", rewards.sum(), "\n")
             print(q_table)
             if step%100 > 0:
                 print("PLOTTING HEATMAP")
@@ -224,6 +236,32 @@ for step in range(0, steps-1):
         # disp.update()
         print("*****Step #", step, " *****\n")
         print('Epsilon: ', epsilon, '\nTouch: ', st, '\nProximity: ', dist, "\nTotal Reward: ", total_reward, "\n")
+        if step >= 200:
+            print("Total reward past 200 steps: ", rewards.sum(), "\n")
 
-    
 tank.off()
+print("*****Total Steps", steps, " *****\n")
+print('Epsilon: ', epsilon,  "\nTotal Reward: ", total_reward, "\n Total Reward past 200 steps:", rewards.sum())
+# Output objects to a file with run date and time
+from datetime import datetime
+import pickle
+datestring = datetime.strftime(datetime.now(), '%Y_%m_%d_%H_%M_%S')
+data = {
+    "Date": datetime,
+    "N0": N0,
+    "alpha": alpha,
+    "gamma": gamma,
+    "bins": bins,
+    "steps": steps,
+    "total reward": total_reward,
+    "last 200 reward": rewards.sum(),
+    "Q Table": q_table}
+
+with open("ev3QLearning_"+datestring+".dat", "wb") as f:
+    pickle.dump(data, f)
+
+def loadResult(fname):
+    with open(fname, 'rb') as f:
+        return pickle.load(f)
+
+# "ev30Learning_2018_10_28_17_48_38.dat"
