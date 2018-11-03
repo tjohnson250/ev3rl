@@ -247,7 +247,7 @@ from datetime import datetime
 import pickle
 datestring = datetime.strftime(datetime.now(), '%Y_%m_%d_%H_%M_%S')
 data = {
-    "Date": datetime,
+    "Date": datestring,
     "N0": N0,
     "alpha": alpha,
     "gamma": gamma,

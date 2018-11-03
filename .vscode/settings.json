@@ -1,5 +1,7 @@
 {
     "files.eol": "\n",
     "ev3devBrowser.download.exclude": "{**/.*,LICENSE,README.md}",
-    "scm.alwaysShowProviders": true
+    "scm.alwaysShowProviders": true,
+    "terminal.integrated.macOptionIsMeta": true,
+    "python.pythonPath": "/Users/toddjohnson/miniconda3/bin/python"
 }
